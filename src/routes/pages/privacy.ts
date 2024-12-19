@@ -5,7 +5,7 @@ import { maskUser } from "@/modules/user";
 
 import { pageRouter } from "./router";
 
-pageRouter.get("/", async (_req, res) => {
+pageRouter.get("/privacy", async (_req, res) => {
   const user = res.locals["user"]
     ? await prisma.user.findUnique({
         where: { id: res.locals["user"].id },
@@ -17,10 +17,10 @@ pageRouter.get("/", async (_req, res) => {
   // console.log(`user :>>`, user);
 
   return res.render("master", {
-    page: "pages/home",
+    page: "pages/privacy",
     site_name: AppConfig.siteName,
-    page_name: "Home",
-    path_name: "/",
+    page_name: "Privacy Policy",
+    path_name: "/privacy",
     clientEnv,
     user: user ? maskUser(user) : null,
   });

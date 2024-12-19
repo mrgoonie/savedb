@@ -3,8 +3,9 @@
   <div class="container mx-auto px-4">
     <div class="flex items-center justify-between py-4">
       <div class="logo-area">
-        <a href="/" class="logo">
-          ReviewWeb.site
+        <a href="/" class="logo font-bold text-green-500 text-lg flex items-center gap-2">
+          <i class="ri-cloud-line"></i>
+          <%- clientEnv.SITE_NAME %>
           <!-- <img class="light w-36 dark:hidden" src="/images/brand/boost-together-logo-colorful.svg" alt="logo">
           <img class="dark hidden dark:block w-36" src="/images/brand/boost-together-logo-colorful.svg" alt="logo"> -->
         </a>
@@ -17,9 +18,9 @@
           <li class="<%= path_name === "/api-docs" ? "text-blue-600 font-semibold" : "text-gray-600 hover:text-blue-600" %>">
             <a href="/api-docs" class="transition-colors duration-300">API Docs</a>
           </li>
-          <li class="<%= path_name === "/case-studies" ? "text-blue-600 font-semibold" : "text-gray-600 hover:text-blue-600" %>">
+          <!-- <li class="<%= path_name === "/case-studies" ? "text-blue-600 font-semibold" : "text-gray-600 hover:text-blue-600" %>">
             <a href="/case-studies" class="transition-colors duration-300">Instructions</a>
-          </li>
+          </li> -->
         </ul>
       </nav>
       <div class="flex items-center space-x-4">
@@ -33,9 +34,9 @@
               <%= user.name %> <i class="ri-user-line ml-1"></i>
             </a>
           </span>
-          <a href="/start-review" class="rts-btn btn-primary tippy" data-tippy-content="Start your review now!" data-tippy-placement="bottom-end">
+          <!-- <a href="/start-review" class="rts-btn btn-primary tippy" data-tippy-content="Start your review now!" data-tippy-placement="bottom-end">
             <i class="ri-rocket-2-line mr-2"></i> Start Review
-          </a>
+          </a> -->
         </div>
         <% } else { %>
         <a href="/login" class="rts-btn btn-primary">Get Started</a>

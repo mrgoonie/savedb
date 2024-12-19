@@ -1,5 +1,6 @@
 import type { PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { ListBucketsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@aws-sdk/node-http-handler";
 import { randomUUID } from "crypto";
 
 import { env } from "@/env";
@@ -28,22 +29,20 @@ export function getCurrentStorage(): ICloudStorage {
 }
 
 export async function initStorage(storage: ICloudStorage) {
-  // const hashedSecretKey = await crypto.subtle
-  // 	.digest("SHA-256", new TextEncoder().encode(storage.secretKey))
-  // 	.then((hashBuffer) => {
-  // 		const hashArray = Array.from(new Uint8Array(hashBuffer));
-  // 		const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  // 		return hashHex;
-  // 	});
-
   const s3 = new S3Client({
     region: storage.region,
-    endpoint: storage.endpoint,
+    endpoint: storage.endpoint || `https://${storage.accessKey}.r2.cloudflarestorage.com`,
     credentials: {
       accessKeyId: storage.accessKey,
       secretAccessKey: storage.secretKey,
     },
     forcePathStyle: true,
+    retryMode: "standard",
+    maxAttempts: 5,
+    requestHandler: new NodeHttpHandler({
+      connectionTimeout: 10000,
+      socketTimeout: 10000,
+    }),
   });
 
   return s3;
@@ -72,16 +71,19 @@ export async function uploadFileBuffer(
 
   if (destFileName.startsWith("/")) destFileName = destFileName.slice(1);
 
-  // new file name
-  const extensionMatch = destFileName.match(/\.[0-9a-z]+$/i);
-  const extension = extensionMatch ? extensionMatch[0] : "";
-  const fileName = destFileName.split("/").pop();
-  const uploadPath = destFileName.split("/").slice(0, -1).join("/");
-  const nameWithoutExtension = extension ? fileName?.slice(0, -extension.length) : fileName;
+  const fileName = destFileName.split("/").pop() || "";
+  const fileNameParts = fileName.split(".");
+  const extension = fileNameParts.length > 1 ? `.${fileNameParts.pop()}` : "";
+  const nameWithoutExtension = fileNameParts.join(".");
   const fileSlug = makeSlug(nameWithoutExtension || randomUUID(), {
     delimiter: "-",
   });
-  destFileName = `${uploadPath}/${fileSlug}${extension}`.replace(/\/\//g, "/");
+  const cleanFileName = `${fileSlug}${extension}`;
+
+  const pathParts = destFileName.split("/");
+  pathParts.pop(); // Remove the original filename
+  pathParts.push(cleanFileName); // Add the clean filename
+  const cleanPath = pathParts.join("/");
 
   if (options?.debug) console.log("uploadFileBuffer :>>", { storage });
   const s3 = await initStorage(storage);
@@ -89,27 +91,22 @@ export async function uploadFileBuffer(
   const mimeType = guessMimeTypeByBuffer(buffer);
   if (options?.debug) console.log("uploadFileBuffer :>>", { mimeType });
 
-  const path = `${
-    storage.basePath && storage.basePath.startsWith("/")
-      ? storage.basePath.slice(1)
-      : storage.basePath
-  }/${destFileName}`;
+  const path = storage.basePath
+    ? `${storage.basePath.replace(/^\/+/, "")}/${cleanPath}`.replace(/\/+/g, "/")
+    : cleanPath;
   if (options?.debug) console.log("uploadFileBuffer :>>", { path });
 
   const uploadParams: PutObjectCommandInput = {
     Bucket: storage.bucket,
     Key: path,
     Body: buffer,
-    ContentType: options?.contentType || mimeType,
-    CacheControl: options?.cacheControl || "max-age=31536000, s-maxage=31536000", // Set cache-control headers
-    ContentEncoding: options?.contentEncoding, // Set file to be gzip-encoded
+    ContentType: mimeType,
+    CacheControl: "max-age=31536000, s-maxage=31536000",
   };
 
   if (options?.debug) console.log("uploadFileBuffer :>>", { uploadParams });
 
-  // process upload
   try {
-    // await new Upload({ client: s3, params: uploadParams }).done();
     const data = await s3.send(new PutObjectCommand(uploadParams));
     if (options?.debug) console.log("uploadFileBuffer :>>", { data });
 
@@ -122,7 +119,6 @@ export async function uploadFileBuffer(
   } catch (error) {
     if (error instanceof Error) {
       console.error("Upload error:", error.message);
-      // Log additional details if available
       if ("code" in error) {
         console.error("Error code:", (error as any).code);
       }

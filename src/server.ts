@@ -11,7 +11,6 @@ import { fileURLToPath } from "url";
 
 import { env } from "@/env";
 import { validateSession, verifyRequest } from "@/lib/auth";
-import { browserPool } from "@/lib/playwright";
 import { createInitialPlans } from "@/modules/plan/plans";
 import { initWorkspacePermissions } from "@/modules/workspace";
 import { apiRouter } from "@/routes/api";
@@ -20,7 +19,6 @@ import { pageRouter } from "@/routes/pages";
 
 import { swaggerOptions } from "./config";
 import { fetchListAIModels } from "./lib/ai/models";
-import { createInitialCategories } from "./modules/category";
 import { polarWebhookRouter } from "./routes/webhooks/polar-webhook";
 
 declare global {
@@ -81,14 +79,12 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 // error handler
 app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(chalk.red(`server.ts > error handler > Server error:`, error));
-  return res.status(500).json({ error: "Internal server error" });
+  return res.status(500).json({ error: `Internal server error: ${error.message}` });
 });
 
 // start server
 async function startServer() {
   await initWorkspacePermissions();
-  await browserPool.initialize();
-  await createInitialCategories();
   await fetchListAIModels({ debug: true });
 
   app.listen(env.PORT, () => {

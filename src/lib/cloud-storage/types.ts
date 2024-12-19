@@ -1,35 +1,18 @@
-const CLOUD_STORAGE_PROVIDERS = ["cloudflare", "aws_s3", "do_space", "google"] as const;
+const CLOUD_STORAGE_PROVIDERS = ["aws", "cloudflare"] as const;
 export type CloudStorageProvider = (typeof CLOUD_STORAGE_PROVIDERS)[number];
 
-export type ICloudStorage = {
+export interface ICloudStorage {
   provider: CloudStorageProvider;
-  bucket: string;
   region: string;
+  bucket: string;
+  accessKey: string;
+  secretKey: string;
   endpoint?: string;
   baseUrl?: string;
   basePath?: string;
-  accessKey: string;
-  secretKey: string;
-};
+}
 
-export type StorageUploadOptions = {
+export interface StorageUploadOptions {
   storage?: ICloudStorage;
   debug?: boolean;
-
-  /**
-   * CDN domain
-   */
-  storageHost?: string;
-  /**
-   * Examples: "gzip"
-   */
-  contentEncoding?: string;
-  /**
-   * Example: "public, max-age=31536000"
-   */
-  cacheControl?: string;
-  /**
-   * Example: "image/png"
-   */
-  contentType?: string;
-};
+}
