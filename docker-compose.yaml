@@ -1,6 +1,6 @@
 services:
-  vidcaptions:
-    container_name: vidcaptions
+  savedb:
+    container_name: savedb
     restart: always
     build:
       context: .

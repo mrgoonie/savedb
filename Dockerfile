@@ -2,7 +2,7 @@
 FROM node:20.15.1
 WORKDIR /usr/app
 
-# Install dependencies and Playwright
+# Install dependencies, Playwright, and PostgreSQL tools
 RUN apt-get update && apt-get install -y python3 \
   libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 libgstreamer-plugins-bad1.0-0 \
   libwoff1 libopus0 libwebp7 libwebpdemux2 libenchant-2-2 libgudev-1.0-0 \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y python3 \
   libepoxy0 libgtk-3-0 libharfbuzz-icu0 libmanette-0.2-0 libxkbcommon0 libflite1 \
   libx264-164 gstreamer1.0-libav gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-  firefox-esr
+  firefox-esr postgresql-client
 
 # PNPM
 RUN wget -qO /bin/pnpm "https://github.com/pnpm/pnpm/releases/latest/download/pnpm-linuxstatic-x64" && chmod +x /bin/pnpm
