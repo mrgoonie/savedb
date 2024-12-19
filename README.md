@@ -1,8 +1,8 @@
-# SaveDB.us
+# SaveDB.site
 
 ### Description
 
-SaveDB.us is a tool that provides API to backup databases and upload to cloud storages.
+SaveDB.site is a tool that provides API to backup databases and upload to cloud storages.
 
 > "Just save it somewhere and hope we will never need it."
 

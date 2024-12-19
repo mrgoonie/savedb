@@ -1,6 +1,6 @@
 ## Project Development Information
 
-Main domain: SaveDB.us
+Main domain: SaveDB.site
 
 ### Tech stack
 - Node.js
@@ -34,7 +34,7 @@ always use `bearerAuth` and `ApiKeyAuth` for swagger security
 
 ### Description
 
-SaveDB.us is a tool that provides API to backup databases and upload to cloud storages.
+SaveDB.site is a tool that provides API to backup databases and upload to cloud storages.
 
 ### Support databases
 - PostgreSQL
@@ -58,6 +58,6 @@ SaveDB.us is a tool that provides API to backup databases and upload to cloud st
 - We made this as simple as possible: connect to a database, backup it, upload it to cloud storage. That's it.
 
 ### Support
-- If you have any questions or feedback, please contact us at [SaveDB.us](https://savedb.us).
+- If you have any questions or feedback, please contact us at [SaveDB.site](https://savedb.site).
 - If you have any issues or bugs, please report them to us.
 - If you have any suggestions or feature requests, please submit them to us.
