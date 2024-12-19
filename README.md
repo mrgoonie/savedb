@@ -2,20 +2,27 @@
 
 ### Description
 
-SaveDB.site is a tool that provides API to backup databases and upload to cloud storages.
+[SaveDB.site](https://savedb.site) is a tool that provides API to backup databases and upload to cloud storages.
 
-> "Just save it somewhere and hope we will never need it."
+> *"Just save it somewhere and hope we will never need it."*
 
 ### Support databases
 - [x] PostgreSQL
+- [ ] MySQL
+- [ ] MariaDB
+- [ ] MongoDB
 
 ### Support cloud storages
 - [x] AWS S3
 - [x] Cloudflare R2
+- [ ] Google Cloud Storage
+- [ ] Azure Blob Storage
+- [ ] MinIO
+- [ ] Backblaze B2
 
 ### Workflow:
 
-We made this as simple as possible: connect to a database, backup it, upload it to cloud storage. That's it.
+We made this as simple as possible: connect to a database, backup it, upload it to cloud storage. **That's it!**
 
 ## Stack
 
