@@ -1,23 +1,27 @@
 /* eslint-disable prettier/prettier */
+import { env } from "@/env";
+
 import type { ICloudStorage } from "./types";
 
 /**
- * Private access URL for the storage bucket
+ * Access URL for the storage bucket
  * @param storage
  * @returns
  */
 export function getStorageBucketOrigin(storage: ICloudStorage) {
+  if (storage.baseUrl) return storage.baseUrl;
+
   return storage.provider === "do_space"
     ? `https://${storage.bucket}.${storage.region}.digitaloceanspaces.com`
-    : storage.provider === "aws_s3"
-      ? `https://${storage.bucket}.s3.${storage.region}.amazonaws.com`
-      : storage.provider === "cloudflare"
-        ? storage.endpoint
-        : `https://storage.googleapis.com/${storage.bucket}`;
+    : storage.provider === "aws"
+    ? `https://${storage.bucket}.s3.${storage.region}.amazonaws.com`
+    : storage.provider === "cloudflare"
+    ? storage.endpoint || `https://${storage.accessKey}.r2.cloudflarestorage.com`
+    : `https://storage.googleapis.com/${storage.bucket}`;
 }
 
 /**
- * Public access host (domain) for the storage bucket
+ * Access host (domain) for the storage bucket
  * @param storage
  * @returns
  */
@@ -27,9 +31,11 @@ export function getStorageHost(storage: ICloudStorage) {
 
   return storage.provider === "do_space"
     ? `${storage.region}.digitaloceanspaces.com`
-    : storage.provider === "aws_s3"
-      ? `s3.${storage.region}.amazonaws.com`
-      : `storage.googleapis.com`;
+    : storage.provider === "aws"
+    ? `s3.${storage.region}.amazonaws.com`
+    : storage.provider === "cloudflare"
+    ? `${storage.accessKey}.r2.cloudflarestorage.com`
+    : `storage.googleapis.com`;
 }
 
 /**
@@ -39,11 +45,14 @@ export function getStorageHost(storage: ICloudStorage) {
  * @returns
  */
 export function getUploadFileOriginEndpointUrl(storage: ICloudStorage, destFileName: string) {
-  return `${getStorageBucketOrigin(storage)}${
+  const origin = getStorageBucketOrigin(storage);
+  const basePath =
     storage.basePath && !storage.basePath.startsWith("/")
       ? `/${storage.basePath}`
-      : storage.basePath
-  }/${destFileName.startsWith("/") ? destFileName.slice(1) : destFileName}`;
+      : `/${env.CLOUDFLARE_CDN_PROJECT_NAME}`;
+  const filePath = destFileName.startsWith("/") ? destFileName.slice(1) : destFileName;
+
+  return `${origin}${basePath}/${filePath}`;
 }
 
 /**
@@ -53,17 +62,14 @@ export function getUploadFileOriginEndpointUrl(storage: ICloudStorage, destFileN
  * @returns
  */
 export function getUploadFilePublicUrl(storage: ICloudStorage, destFileName: string) {
-  return storage.provider === "cloudflare"
-    ? `https://${getStorageHost(storage)}${
-        storage.basePath && !storage.basePath.startsWith("/")
-          ? `/${storage.basePath}`
-          : storage.basePath
-      }/${destFileName.startsWith("/") ? destFileName.slice(1) : destFileName}`
-    : `https://${storage.bucket}.${getStorageHost(storage)}${
-        storage.basePath && !storage.basePath.startsWith("/")
-          ? `/${storage.basePath}`
-          : storage.basePath
-      }/${destFileName.startsWith("/") ? destFileName.slice(1) : destFileName}`;
+  const origin = getStorageBucketOrigin(storage);
+  const basePath =
+    storage.basePath && !storage.basePath.startsWith("/")
+      ? `/${storage.basePath}`
+      : `/${env.CLOUDFLARE_CDN_PROJECT_NAME}`;
+  const filePath = destFileName.startsWith("/") ? destFileName.slice(1) : destFileName;
+
+  return `${origin}${basePath}/${filePath}`;
 }
 
 export function guessMimeTypeByBuffer(buffer: Buffer): string {

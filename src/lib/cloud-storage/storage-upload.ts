@@ -1,11 +1,9 @@
 import type { PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { ListBucketsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { NodeHttpHandler } from "@aws-sdk/node-http-handler";
-import { randomUUID } from "crypto";
 
 import { env } from "@/env";
 
-import { makeSlug } from "../utils";
 import { getImageBufferFromUrl, readFileToBuffer } from "../utils/image";
 import {
   getUploadFileOriginEndpointUrl,
@@ -71,34 +69,18 @@ export async function uploadFileBuffer(
 
   if (destFileName.startsWith("/")) destFileName = destFileName.slice(1);
 
-  const fileName = destFileName.split("/").pop() || "";
-  const fileNameParts = fileName.split(".");
-  const extension = fileNameParts.length > 1 ? `.${fileNameParts.pop()}` : "";
-  const nameWithoutExtension = fileNameParts.join(".");
-  const fileSlug = makeSlug(nameWithoutExtension || randomUUID(), {
-    delimiter: "-",
-  });
-  const cleanFileName = `${fileSlug}${extension}`;
-
-  const pathParts = destFileName.split("/");
-  pathParts.pop(); // Remove the original filename
-  pathParts.push(cleanFileName); // Add the clean filename
-  const cleanPath = pathParts.join("/");
-
+  const path = destFileName.replace(/[^a-zA-Z0-9-_.]/g, "");
   if (options?.debug) console.log("uploadFileBuffer :>>", { storage });
   const s3 = await initStorage(storage);
 
-  const mimeType = guessMimeTypeByBuffer(buffer);
+  const mimeType = guessMimeTypeByBuffer(buffer) || "application/octet-stream";
   if (options?.debug) console.log("uploadFileBuffer :>>", { mimeType });
 
-  const path = storage.basePath
-    ? `${storage.basePath.replace(/^\/+/, "")}/${cleanPath}`.replace(/\/+/g, "/")
-    : cleanPath;
   if (options?.debug) console.log("uploadFileBuffer :>>", { path });
 
   const uploadParams: PutObjectCommandInput = {
     Bucket: storage.bucket,
-    Key: path,
+    Key: `${env.CLOUDFLARE_CDN_PROJECT_NAME}/${path}`,
     Body: buffer,
     ContentType: mimeType,
     CacheControl: "max-age=31536000, s-maxage=31536000",
@@ -110,12 +92,14 @@ export async function uploadFileBuffer(
     const data = await s3.send(new PutObjectCommand(uploadParams));
     if (options?.debug) console.log("uploadFileBuffer :>>", { data });
 
-    return {
+    const response = {
       provider: storage.provider,
       path,
       storageUrl: getUploadFileOriginEndpointUrl(storage, destFileName),
       publicUrl: getUploadFilePublicUrl(storage, destFileName),
     };
+    if (options?.debug) console.log("uploadFileBuffer :>>", { response });
+    return response;
   } catch (error) {
     if (error instanceof Error) {
       console.error("Upload error:", error.message);

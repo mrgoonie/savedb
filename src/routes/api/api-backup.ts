@@ -31,7 +31,7 @@ const CloudStorageSchema = z.object({
   region: z.string(),
   accessKey: z.string(),
   secretKey: z.string(),
-  endpoint: z.string().optional(),
+  endpoint: z.string(),
   baseUrl: z.string().optional(),
   basePath: z.string().optional(),
 });
@@ -75,7 +75,7 @@ const DatabaseBackupRequestSchema = z.object({
  *           description: Storage secret key
  *         endpoint:
  *           type: string
- *           description: Custom endpoint URL (optional)
+ *           description: Custom endpoint URL
  *         baseUrl:
  *           type: string
  *           description: Base URL for accessing files (optional)
@@ -88,6 +88,7 @@ const DatabaseBackupRequestSchema = z.object({
  *         - region
  *         - accessKey
  *         - secretKey
+ *         - endpoint
  *     DatabaseBackupCreate:
  *       type: object
  *       properties:
@@ -137,6 +138,7 @@ apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, 
     const backupName = backupData.name || generateBackupName(backupData.connectionUrl);
     const outputName = `${backupName}.dump`;
 
+    console.log(`Backup data :>>`, backupData);
     // Handle different database types
     switch (backupData.databaseType) {
       case DatabaseType.POSTGRES: {
