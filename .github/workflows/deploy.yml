@@ -15,7 +15,7 @@ env:
 # CI/CD STEPS
 jobs:
   deploy:
-    name: Deploy to [www.indiebacklink.com]
+    name: Deploy to [www.savedb.site]
     runs-on: ubuntu-latest
     if: always() && !cancelled() && !failure() && contains(github.ref, 'main')
     steps:
@@ -31,5 +31,6 @@ jobs:
           cluster: dxupprod
           registry: digitopdockerhub
           deploy_env: prod
+          project: savedb
           tail: true
           port: 3000
