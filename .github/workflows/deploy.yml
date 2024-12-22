@@ -31,6 +31,5 @@ jobs:
           cluster: dxupprod
           registry: digitopdockerhub
           deploy_env: prod
-          project: savedb
           tail: true
           port: 3000
