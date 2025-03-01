@@ -87,9 +87,11 @@ async function startServer() {
   await initWorkspacePermissions();
   await fetchListAIModels({ debug: true });
 
-  app.listen(env.PORT, () => {
+  const server = app.listen(env.PORT, () => {
     console.log(chalk.green(`🚀 Server running on port ${env.PORT}`));
   });
+  // Set a 15 minutes timeout for incoming requests
+  server.setTimeout(15 * 60 * 1000);
 
   // Handle graceful shutdown
   process.on("SIGTERM", async () => {
