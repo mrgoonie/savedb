@@ -133,36 +133,140 @@ const DatabaseBackupRequestSchema = z.object({
  *         description: Failed to create backup
  */
 apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, next) => {
+  // Set a longer timeout for this route (45 minutes)
+  req.setTimeout(45 * 60 * 1000);
+  console.log(`Setting API request timeout to 45 minutes for backup request`);
+
+  // Check if client wants streaming updates
+  const acceptsStreamingUpdates =
+    req.headers.accept?.includes("text/event-stream") || req.query.stream === "true";
+
   try {
     const backupData = DatabaseBackupRequestSchema.parse(req.body);
     const backupName = backupData.name || generateBackupName(backupData.connectionUrl);
     const outputName = `${backupName}.dump`;
 
     console.log(`Backup data :>>`, backupData);
+
     // Handle different database types
     switch (backupData.databaseType) {
       case DatabaseType.POSTGRES: {
-        const { provider, url } = await backupAndUploadDatabase({
-          connectionUrl: backupData.connectionUrl,
-          outputName,
-          storage: backupData.storage,
-          debug: IsDev(),
-        });
+        if (acceptsStreamingUpdates) {
+          // Setup for streaming updates
+          res.writeHead(200, {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          });
 
-        res.status(201).json({
-          success: true,
-          data: {
-            name: backupName,
-            provider,
-            url,
-          },
-        });
+          res.write("event: progress\n");
+          res.write(
+            `data: ${JSON.stringify({ progress: 0, message: "Starting backup process" })}\n\n`
+          );
+
+          try {
+            const { provider, url } = await backupAndUploadDatabase({
+              connectionUrl: backupData.connectionUrl,
+              outputName,
+              storage: backupData.storage,
+              debug: IsDev(),
+              onProgress: (progress) => {
+                // Send progress events
+                res.write("event: progress\n");
+                res.write(`data: ${JSON.stringify(progress)}\n\n`);
+              },
+            });
+
+            // Send completion event
+            res.write("event: complete\n");
+            res.write(
+              `data: ${JSON.stringify({
+                name: backupName,
+                provider,
+                url,
+              })}\n\n`
+            );
+
+            // End the response
+            res.end();
+          } catch (error: any) {
+            console.error("Streaming backup error:", error);
+
+            // Prepare a user-friendly error message
+            let errorMessage = error.message;
+            let errorDetails = "";
+
+            // Handle timeout errors specifically
+            if (error.message.includes("timed out")) {
+              errorMessage =
+                "The database backup operation timed out. This may be due to the database size or server load.";
+              errorDetails =
+                "Consider breaking up your backup into smaller chunks or running during off-peak hours.";
+            }
+
+            // Send error event with more details
+            res.write("event: error\n");
+            res.write(
+              `data: ${JSON.stringify({
+                message: errorMessage,
+                details: errorDetails,
+                originalError: error.message,
+              })}\n\n`
+            );
+            res.end();
+          }
+        } else {
+          // Standard JSON response without streaming
+          try {
+            const { provider, url } = await backupAndUploadDatabase({
+              connectionUrl: backupData.connectionUrl,
+              outputName,
+              storage: backupData.storage,
+              debug: IsDev(),
+              // Progress callback is still useful for logging even if not streaming
+              onProgress: (progress) => {
+                console.log(`Backup progress: ${progress.percent}% - ${progress.message}`);
+              },
+            });
+
+            res.status(201).json({
+              success: true,
+              data: {
+                name: backupName,
+                provider,
+                url,
+              },
+            });
+          } catch (error: any) {
+            console.error("Backup process error:", error);
+
+            // Handle timeout errors with more specific messages
+            if (error.message.includes("timed out")) {
+              return res.status(504).json({
+                success: false,
+                error: {
+                  message:
+                    "The database backup operation timed out. This may be due to the database size or server load.",
+                  details:
+                    "Consider breaking up your backup into smaller chunks or running during off-peak hours.",
+                  originalError: error.message,
+                },
+              });
+            }
+
+            throw error;
+          }
+        }
         break;
       }
       default:
         throw new Error(`Unsupported database type: ${backupData.databaseType}`);
     }
   } catch (error) {
-    next(error);
+    if (!res.headersSent) {
+      next(error);
+    } else {
+      console.error("Error after headers sent:", error);
+    }
   }
 });

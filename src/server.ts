@@ -90,8 +90,9 @@ async function startServer() {
   const server = app.listen(env.PORT, () => {
     console.log(chalk.green(`🚀 Server running on port ${env.PORT}`));
   });
-  // Set a 15 minutes timeout for incoming requests
-  server.setTimeout(15 * 60 * 1000);
+  // Set a 60 minutes timeout for incoming requests
+  server.setTimeout(60 * 60 * 1000);
+  console.log(`Server timeout set to 60 minutes for long-running operations`);
 
   // Handle graceful shutdown
   process.on("SIGTERM", async () => {
