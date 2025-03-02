@@ -38,8 +38,8 @@ export async function initStorage(storage: ICloudStorage) {
     retryMode: "standard",
     maxAttempts: 5,
     requestHandler: new NodeHttpHandler({
-      connectionTimeout: 10000,
-      socketTimeout: 10000,
+      connectionTimeout: 300000, // 5 minutes
+      socketTimeout: 300000, // 5 minutes
     }),
   });
 
@@ -64,6 +64,8 @@ export async function uploadFileBuffer(
   publicUrl: string;
   provider: CloudStorageProvider;
 }> {
+  console.log(`Starting file upload: ${destFileName} (${buffer.length} bytes)`);
+  const startTime = Date.now();
   const { storage = getCurrentStorage() } = options || {};
   if (!storage) throw new Error("Storage is not defined");
 
@@ -89,7 +91,14 @@ export async function uploadFileBuffer(
   if (options?.debug) console.log("uploadFileBuffer :>>", { uploadParams });
 
   try {
+    console.log(`Sending file to cloud storage: ${destFileName}`);
+    const uploadStartTime = Date.now();
+
     const data = await s3.send(new PutObjectCommand(uploadParams));
+
+    const uploadDuration = (Date.now() - uploadStartTime) / 1000;
+    console.log(`File upload completed in ${uploadDuration.toFixed(2)}s: ${destFileName}`);
+
     if (options?.debug) console.log("uploadFileBuffer :>>", { data });
 
     const response = {
@@ -99,8 +108,13 @@ export async function uploadFileBuffer(
       publicUrl: getUploadFilePublicUrl(storage, destFileName),
     };
     if (options?.debug) console.log("uploadFileBuffer :>>", { response });
+    const totalDuration = (Date.now() - startTime) / 1000;
+    console.log(`Total upload process completed in ${totalDuration.toFixed(2)}s: ${destFileName}`);
     return response;
   } catch (error) {
+    const failureDuration = (Date.now() - startTime) / 1000;
+    console.error(`Upload failed after ${failureDuration.toFixed(2)}s: ${destFileName}`);
+
     if (error instanceof Error) {
       console.error("Upload error:", error.message);
       if ("code" in error) {

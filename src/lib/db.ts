@@ -8,12 +8,14 @@ const pool = new pg.Pool({
   connectionString: env.DATABASE_URL,
   max: 20,
   min: 5,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
-  statement_timeout: 10000, // Add statement timeout
-  query_timeout: 10000, // Add query timeout
+  idleTimeoutMillis: 300000, // 5 minutes
+  connectionTimeoutMillis: 300000, // 5 minutes
+  statement_timeout: 1800000, // 30 minutes
+  query_timeout: 1800000, // 30 minutes
   allowExitOnIdle: true,
 });
+
+console.log("Database connection pool configured with extended timeouts (30 minutes)");
 
 // Add connection initialization check
 const initializePool = async () => {
@@ -53,7 +55,8 @@ const prismaClientSingleton = () => {
 const prisma = ((globalThis as any).prisma as PrismaClient) || prismaClientSingleton();
 
 // Add transaction timeout middleware
-const withTimeout = async (promise: Promise<any>, timeoutMs: number = 10000) => {
+const withTimeout = async (promise: Promise<any>, timeoutMs: number = 1800000) => {
+  // 30 minutes default
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   const timeoutPromise = new Promise<never>((_, reject) => {
