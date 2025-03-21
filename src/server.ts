@@ -19,6 +19,7 @@ import { pageRouter } from "@/routes/pages";
 
 import { swaggerOptions } from "./config";
 import { fetchListAIModels } from "./lib/ai/models";
+import { DEFAULT_TIMEOUT } from "./modules/databases";
 import { polarWebhookRouter } from "./routes/webhooks/polar-webhook";
 
 declare global {
@@ -90,8 +91,9 @@ async function startServer() {
   const server = app.listen(env.PORT, () => {
     console.log(chalk.green(`🚀 Server running on port ${env.PORT}`));
   });
+
   // Set a 60 minutes timeout for incoming requests
-  server.setTimeout(60 * 60 * 1000);
+  server.setTimeout(DEFAULT_TIMEOUT);
   console.log(`Server timeout set to 60 minutes for long-running operations`);
 
   // Handle graceful shutdown

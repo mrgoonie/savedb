@@ -2,8 +2,11 @@
 import { $ } from "execa";
 import fs from "fs";
 import path from "path";
+import pg from "pg";
 
 import { type ICloudStorage, uploadFileBuffer } from "@/lib/cloud-storage";
+
+export const DEFAULT_TIMEOUT = 60 * 60 * 1000;
 
 interface BackupOptions {
   /**
@@ -56,9 +59,9 @@ async function executePgDump(
     retryDelayMs?: number;
   } = {}
 ): Promise<{ stdout: string; stderr: string }> {
-  console.log(`executePgDump: Starting with timeout ${options.timeout || 15 * 60 * 1000}ms`);
+  const { debug = false, timeout = DEFAULT_TIMEOUT, maxRetries = 2, retryDelayMs = 5000 } = options;
 
-  const { debug = false, timeout = 15 * 60 * 1000, maxRetries = 2, retryDelayMs = 5000 } = options;
+  console.log(`executePgDump: Starting with timeout ${timeout}ms`);
 
   let lastError: any = null;
 
@@ -77,22 +80,21 @@ async function executePgDump(
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       }
 
-      // Add performance optimizations: -Z0 (no compression), -j 4 (parallel jobs)
+      // Add performance optimizations: -Z0 (no compression), -j 8 (parallel jobs)
       // Use custom format (-Fc) for better performance and compression
-      const pgDumpCommand = `${pgDumpPath} ${connectionUrl} -v -Fc -f ${outputPath}`;
+      // Z 9: --compress=0..9 -> 9 is the highest compression level
+      const pgDumpCommand = `${pgDumpPath} ${connectionUrl} -v -j 8 -Z 9 -Fc -f ${outputPath}`;
 
       if (debug) {
-        console.log(`Executing pg_dump command: ${pgDumpCommand}`);
+        console.log(`[${new Date().toISOString()}] Executing pg_dump command: ${pgDumpCommand}`);
       }
-
-      console.log(`executePgDump: About to execute pg_dump command at ${new Date().toISOString()}`);
 
       // Execute pg_dump with verbose output and custom format
       const result = await $({
         timeout,
-        stderr: "pipe", // Ensure we capture stderr
-        stdout: "pipe", // Ensure we capture stdout
-        reject: false, // Don't reject on non-zero exit code, we'll handle it
+        // stderr: "pipe", // Ensure we capture stderr
+        // stdout: "pipe", // Ensure we capture stdout
+        // reject: false, // Don't reject on non-zero exit code, we'll handle it
       })`${pgDumpPath} ${connectionUrl} -v -Fc -f ${outputPath}`;
 
       const execEndTime = Date.now();
@@ -167,8 +169,7 @@ export async function backupPostgresDatabase({
   try {
     // Ensure outputName ends with .sql and remove any path separators
     const timestamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0];
-    const cleanFileName = outputName.replace(/[/\\]/g, "-");
-    const sqlFileName = cleanFileName.endsWith(".sql") ? cleanFileName : `${cleanFileName}.sql`;
+    const sqlFileName = outputName.replace(/[/\\]/g, "-");
     const backupFileName = `backup-${timestamp}-${sqlFileName}`;
     const outputPath = path.join(process.cwd(), "public/uploads", backupFileName);
 
@@ -281,10 +282,9 @@ async function testDatabaseConnection(
 ): Promise<{ success: boolean; message: string; error?: any }> {
   console.log(`Testing direct database connection...`);
   try {
-    const { Pool } = await import("pg");
-
     // Create a client with a short timeout for testing
-    const testPool = new Pool({
+    console.log(`testDatabaseConnection: ${connectionUrl}`);
+    const testPool = new pg.Pool({
       connectionString: connectionUrl,
       connectionTimeoutMillis: 5000, // 5 seconds for test
     });
@@ -329,8 +329,7 @@ async function checkDatabaseSize(
     }
 
     // Create a temporary connection to the database
-    const { Pool } = await import("pg");
-    const pool = new Pool({ connectionString: connectionUrl });
+    const pool = new pg.Pool({ connectionString: connectionUrl });
 
     try {
       // Query to get database size
