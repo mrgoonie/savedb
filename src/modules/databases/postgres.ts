@@ -83,7 +83,7 @@ async function executePgDump(
       // Add performance optimizations: -Z0 (no compression), -j 8 (parallel jobs)
       // Use custom format (-Fc) for better performance and compression
       // Z 9: --compress=0..9 -> 9 is the highest compression level
-      const pgDumpCommand = `${pgDumpPath} ${connectionUrl} -v -j 8 -Z 9 -Fc -f ${outputPath}`;
+      const pgDumpCommand = `${pgDumpPath} ${connectionUrl} -v -j 8 -Z0 -Fc -f ${outputPath}`;
 
       if (debug) {
         console.log(`[${new Date().toISOString()}] Executing pg_dump command: ${pgDumpCommand}`);
