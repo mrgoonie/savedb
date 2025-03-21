@@ -4,7 +4,11 @@ import { z } from "zod";
 import { IsDev } from "@/config";
 import { validateSession } from "@/lib/auth";
 import { apiKeyAuth } from "@/middlewares/api_key_auth";
-import { backupAndUploadDatabase, generateBackupName } from "@/modules/databases/postgres";
+import {
+  backupAndUploadDatabase,
+  DEFAULT_TIMEOUT,
+  generateBackupName,
+} from "@/modules/databases/postgres";
 
 // Database types enum - will be expanded in the future
 export const DatabaseType = {
@@ -134,8 +138,7 @@ const DatabaseBackupRequestSchema = z.object({
  */
 apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, next) => {
   // Set a longer timeout for this route (45 minutes)
-  req.setTimeout(45 * 60 * 1000);
-  console.log(`Setting API request timeout to 45 minutes for backup request`);
+  req.setTimeout(DEFAULT_TIMEOUT);
 
   // Check if client wants streaming updates
   const acceptsStreamingUpdates =
@@ -145,8 +148,6 @@ apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, 
     const backupData = DatabaseBackupRequestSchema.parse(req.body);
     const backupName = backupData.name || generateBackupName(backupData.connectionUrl);
     const outputName = `${backupName}.dump`;
-
-    console.log(`Backup data :>>`, backupData);
 
     // Handle different database types
     switch (backupData.databaseType) {
