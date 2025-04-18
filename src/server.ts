@@ -8,6 +8,7 @@ import path from "path";
 import swaggerJSDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import { fileURLToPath } from "url";
+import { z } from "zod";
 
 import { env } from "@/env";
 import { validateSession, verifyRequest } from "@/lib/auth";
@@ -80,6 +81,13 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 // error handler
 app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(chalk.red(`server.ts > error handler > Server error:`, error));
+  if (error instanceof z.ZodError) {
+    return res.status(400).json({
+      error: `Validation error: ${error.errors
+        .map((e) => `${e.path.join(".")}: ${e.message}`)
+        .join(", ")}`,
+    });
+  }
   return res.status(500).json({ error: `Internal server error: ${error.message}` });
 });
 

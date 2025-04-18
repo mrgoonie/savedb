@@ -1,4 +1,4 @@
-const CLOUD_STORAGE_PROVIDERS = ["aws", "cloudflare", "do_space"] as const;
+const CLOUD_STORAGE_PROVIDERS = ["aws", "cloudflare", "do_space", "google_drive"] as const;
 export type CloudStorageProvider = (typeof CLOUD_STORAGE_PROVIDERS)[number];
 
 export interface ICloudStorage {

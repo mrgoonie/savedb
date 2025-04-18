@@ -13,6 +13,7 @@
 - [ ] MongoDB
 
 ### Support cloud storages
+- [x] Google Drive
 - [x] AWS S3
 - [x] Cloudflare R2
 - [ ] Google Cloud Storage
