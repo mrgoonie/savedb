@@ -23,6 +23,7 @@ always implement dark mode
 always import prisma client with: `import { prisma } from "@/lib/db";`
 always use async/await for better readability and performance
 always use `next()` for error handling of all routers
+always use `axios` for API requests, implement retry logic and error handling
 always use try-catch for fallback error handling
 always use zod for validation
 always generate swagger docs for all APIs
@@ -40,6 +41,7 @@ SaveDB.site is a tool that provides API to backup databases and upload to cloud 
 ### Support cloud storages
 - AWS S3
 - Cloudflare R2
+- Google Drive
 
 ### Slogans
 1. "Just save it somewhere and hope we will never need it."

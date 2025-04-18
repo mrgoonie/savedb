@@ -22,6 +22,7 @@ export const DatabaseType = {
 export const CloudStorageProvider = {
   AWS: "aws",
   CLOUDFLARE: "cloudflare",
+  GOOGLE_DRIVE: "google_drive",
 } as const;
 
 // Database Backup API Router
@@ -41,12 +42,39 @@ const CloudStorageSchema = z.object({
 });
 
 // Zod schema for database backup creation
-const DatabaseBackupRequestSchema = z.object({
-  name: z.string().optional(),
-  databaseType: z.nativeEnum(DatabaseType),
-  connectionUrl: z.string(),
-  storage: CloudStorageSchema,
-});
+const DatabaseBackupRequestSchema = z.preprocess(
+  (input) => {
+    if (input && typeof input === "object" && (input as any).googleDrive) {
+      // eslint-disable-next-line no-unused-vars
+      const { storage, ...rest } = input as any;
+      return rest;
+    }
+    return input;
+  },
+  z
+    .object({
+      name: z.string().optional(),
+      databaseType: z.nativeEnum(DatabaseType),
+      connectionUrl: z.string(),
+      storage: CloudStorageSchema.optional(),
+      googleDrive: z
+        .object({
+          folderId: z.string().optional(),
+          isPublic: z.boolean().optional(),
+          sharedEmails: z.array(z.string().email()).optional(),
+          serviceAccount: z
+            .object({
+              client_email: z.string(),
+              private_key: z.string(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .refine((data) => data.storage || data.googleDrive, {
+      message: "Either storage or googleDrive must be provided",
+    })
+);
 
 /**
  * @openapi
@@ -58,8 +86,40 @@ const DatabaseBackupRequestSchema = z.object({
  *       description: Type of database to backup (currently only postgres is supported)
  *     CloudStorageProvider:
  *       type: string
- *       enum: [cloudflare, aws_s3, do_space, google]
+ *       enum: [cloudflare, aws, do, google_drive]
  *       description: Cloud storage provider for storing backups
+ *     GoogleDrive:
+ *       type: object
+ *       properties:
+ *         provider:
+ *           $ref: '#/components/schemas/CloudStorageProvider'
+ *         folderId:
+ *           type: string
+ *           description: Google Drive folder ID
+ *         isPublic:
+ *           type: boolean
+ *           description: Whether the file should be made public
+ *         sharedEmails:
+ *           type: array
+ *           items:
+ *             type: string
+ *             format: email
+ *           description: Email addresses to share the file with
+ *         serviceAccount:
+ *           type: object
+ *           properties:
+ *             type:
+ *               type: string
+ *               description: Type of service account
+ *             projectId:
+ *               type: string
+ *               description: Project ID of service account
+ *             private_key:
+ *               type: string
+ *               description: Private key of service account
+ *             client_email:
+ *               type: string
+ *               description: Client email of service account
  *     CloudStorage:
  *       type: object
  *       properties:
@@ -106,6 +166,8 @@ const DatabaseBackupRequestSchema = z.object({
  *           description: Database connection URL
  *         storage:
  *           $ref: '#/components/schemas/CloudStorage'
+ *         googleDrive:
+ *           $ref: '#/components/schemas/GoogleDrive'
  *       required:
  *         - databaseType
  *         - connectionUrl
@@ -166,17 +228,32 @@ apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, 
           );
 
           try {
-            const { provider, url } = await backupAndUploadDatabase({
-              connectionUrl: backupData.connectionUrl,
-              outputName,
-              storage: backupData.storage,
-              debug: IsDev(),
-              onProgress: (progress) => {
-                // Send progress events
-                res.write("event: progress\n");
-                res.write(`data: ${JSON.stringify(progress)}\n\n`);
-              },
-            });
+            // Invoke backup & upload, choosing Drive or generic storage
+            let backupResult: { provider: string | undefined; url: string };
+            if (backupData.googleDrive) {
+              backupResult = await backupAndUploadDatabase({
+                connectionUrl: backupData.connectionUrl,
+                outputName,
+                googleDrive: backupData.googleDrive,
+                debug: IsDev(),
+                onProgress: (progress) => {
+                  res.write("event: progress\n");
+                  res.write(`data: ${JSON.stringify(progress)}\n\n`);
+                },
+              });
+            } else {
+              backupResult = await backupAndUploadDatabase({
+                connectionUrl: backupData.connectionUrl,
+                outputName,
+                storage: backupData.storage!,
+                debug: IsDev(),
+                onProgress: (progress) => {
+                  res.write("event: progress\n");
+                  res.write(`data: ${JSON.stringify(progress)}\n\n`);
+                },
+              });
+            }
+            const { provider, url } = backupResult;
 
             // Send completion event
             res.write("event: complete\n");
@@ -219,16 +296,30 @@ apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, 
         } else {
           // Standard JSON response without streaming
           try {
-            const { provider, url } = await backupAndUploadDatabase({
-              connectionUrl: backupData.connectionUrl,
-              outputName,
-              storage: backupData.storage,
-              debug: IsDev(),
-              // Progress callback is still useful for logging even if not streaming
-              onProgress: (progress) => {
-                console.log(`Backup progress: ${progress.percent}% - ${progress.message}`);
-              },
-            });
+            // Invoke backup & upload for JSON response
+            let result: { provider: string | undefined; url: string };
+            if (backupData.googleDrive) {
+              result = await backupAndUploadDatabase({
+                connectionUrl: backupData.connectionUrl,
+                outputName,
+                googleDrive: backupData.googleDrive,
+                debug: IsDev(),
+                onProgress: (progress) => {
+                  console.log(`Backup progress: ${progress.percent}% - ${progress.message}`);
+                },
+              });
+            } else {
+              result = await backupAndUploadDatabase({
+                connectionUrl: backupData.connectionUrl,
+                outputName,
+                storage: backupData.storage!,
+                debug: IsDev(),
+                onProgress: (progress) => {
+                  console.log(`Backup progress: ${progress.percent}% - ${progress.message}`);
+                },
+              });
+            }
+            const { provider, url } = result;
 
             res.status(201).json({
               success: true,
@@ -268,6 +359,12 @@ apiDatabaseBackupRouter.post("/", validateSession, apiKeyAuth, async (req, res, 
       next(error);
     } else {
       console.error("Error after headers sent:", error);
+      if (error instanceof z.ZodError) {
+        console.error(
+          "Validation error details:",
+          error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ")
+        );
+      }
     }
   }
 });

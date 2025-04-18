@@ -5,6 +5,7 @@ import path from "path";
 import pg from "pg";
 
 import { type ICloudStorage, uploadFileBuffer } from "@/lib/cloud-storage";
+import { uploadFileToDrive } from "@/lib/google/drive";
 
 export const DEFAULT_TIMEOUT = 60 * 60 * 1000;
 
@@ -260,7 +261,7 @@ export async function backupPostgresDatabase({
 }
 
 export type StorageUploadOptions = {
-  storage: ICloudStorage;
+  storage?: ICloudStorage;
   debug?: boolean;
 };
 
@@ -372,12 +373,18 @@ export async function backupAndUploadDatabase({
   connectionUrl,
   outputName,
   storage,
+  googleDrive,
   debug = false,
   onProgress = (_progress: { message: string; percent: number }) => {},
-}: BackupAndUploadOptions & { onProgress?: (progress: BackupProgressCallback) => void }): Promise<{
-  provider: string;
-  url: string;
-}> {
+}: BackupAndUploadOptions & {
+  googleDrive?: {
+    folderId?: string;
+    isPublic?: boolean;
+    sharedEmails?: string[];
+    serviceAccount?: { client_email: string; private_key: string };
+  };
+  onProgress?: (progress: BackupProgressCallback) => void;
+}): Promise<{ provider: string | undefined; url: string }> {
   let backupFileName: string | undefined;
   let outputPath: string | undefined;
 
@@ -433,27 +440,38 @@ export async function backupAndUploadDatabase({
       throw new Error("Backup file is empty, possibly a failed backup operation");
     }
 
-    // Upload to cloud storage with timeout
-    onProgress({ message: "Reading backup file...", percent: 60 });
     const fileBuffer = await fs.promises.readFile(outputPath);
 
-    onProgress({ message: "Uploading to cloud storage...", percent: 70 });
-    const uploadPromise = uploadFileBuffer(fileBuffer, backupFileName, {
-      storage,
-      debug,
-    });
+    let uploadPromise: Promise<any>;
+    if (googleDrive) {
+      uploadPromise = uploadFileToDrive(fileBuffer, backupFileName, {
+        folderId: googleDrive.folderId,
+        isPublic: googleDrive.isPublic,
+        sharedEmails: googleDrive.sharedEmails,
+        serviceAccount: googleDrive.serviceAccount,
+      });
+    } else if (storage) {
+      uploadPromise = uploadFileBuffer(fileBuffer, backupFileName, { storage, debug });
+    } else {
+      throw new Error("No storage configuration provided");
+    }
 
-    const { publicUrl, provider } = await Promise.race([
+    const uploadResult = await Promise.race([
       uploadPromise,
       new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Cloud storage upload operation timed out")), timeoutMs);
+        setTimeout(() => reject(new Error("Upload timed out")), timeoutMs);
       }),
     ]);
 
     onProgress({ message: "Upload completed successfully", percent: 100 });
-    console.log(`Database backup uploaded to cloud storage: ${backupFileName}`);
+    console.log(`Database backup uploaded: ${backupFileName}`);
 
-    return { provider, url: publicUrl };
+    const storageProvider = storage?.provider ?? undefined;
+    const provider = googleDrive ? "google_drive" : storageProvider;
+    const url = googleDrive
+      ? (uploadResult as { webViewLink: string }).webViewLink
+      : (uploadResult as { publicUrl: string }).publicUrl;
+    return { provider, url };
   } catch (error) {
     console.error("Error in backup and upload process:", error);
     throw error;
