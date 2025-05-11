@@ -94,6 +94,7 @@ Please feel free to contribute to this project!
 - [VidCap.xyz](https://vidcap.xyz) - Extract Youtube caption, download videos, capture screenshot, summarize,…
 - [ReadTube.me](https://readtube.me) - Write blog articles based on Youtube videos
 - [AIVN.Site](https://aivn.site) - Face Swap, Remove BG, Photo Editor,…
-- [GetViral.Now](https://getviral.now) - KOL booking better together!
+- [SearchAPI.site](https://SearchAPI.site) - API & MCP to search over the internet using Google, Bing, DuckDuckGo, etc.
+- [ReviewWeb.site](https://ReviewWeb.site) - API & MCP to analyze, summrize, convert to markdown, extract data from URLs
 
 Thank you!
